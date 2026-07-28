@@ -1,2 +1,84 @@
-# radioflow
+# Radioflow
 BE645 AI in Radiomics Final Project
+
+## Requirements
+- Python 3.10
+- uv
+- Node.js version 24+
+- Docker Desktop
+
+## Getting Started
+
+### Linking Your Local Dataset
+It is assumed that you have a local dataset in a director with the two following subdirectories:
+- images
+- masks
+
+> **Note:** Ensure you grant Docker Desktop access to the directory on your machine.
+
+**MacOS**:
+1. Open Docker Desktop
+2. Go to Settings > Resources > File Sharing
+3. Click "Add a Folder" and select the directory where you have stored the dataset
+4. Click "Apply & Restart" to save the changes and restart Docker Desktop
+
+**Windows WSL2**:
+1. Open Docker Desktop
+2. Go to Settings > Resources > WSL Integration
+3. Add the drive letter where you have the Dataset
+4. Click "Apply & Restart" to save the changes and restart Docker Desktop
+
+Next, you need to update the `DATASET_PATH` variable in the `.env` file at the root of the repo to point to the directory where you have stored the Dataset. For example:
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and set:
+```
+DATASET_PATH=/path/to/dataset
+```
+
+### Start the Backend API
+1. Navigate to the root of the repo:
+    ```bash
+    cd Radioflow
+    ```
+2. Build and run the Docker container:
+    ```bash
+    docker compose up --build -d backend
+    ```
+3. Confirm the container is running:
+    ```bash
+    docker compose ps
+    ```
+4. Check the API health endpoint:
+    ```bash
+    curl http://localhost:8000/health
+    ``` 
+
+### Stopping the Backend API
+To stop the backend API, run:
+```bash
+docker compose down backend
+```
+
+### View API Documentation
+View API documentation at:
+- http://localhost:8000/docs (Swagger UI)
+- http://localhost:8000/redoc (ReDoc)
+
+## Starting the Frontend
+1. cd into the frontend directory:
+    ```bash
+    cd frontend
+    ```
+2. `npm install` to install dependencies
+3. `npm run dev` to start the development server
+4. Open http://localhost:5173 in your browser to view the app
+
+## Licensing and Attribution
+
+The core Python code implementation have been sourced from Hossam Balaha and his curriculum development in the [BE 645 Artificial Intelligence (AI) and Radiomics](https://github.com/HossamBalaha/BE-645-Artificial-Intelligence-and-Radiomics) course. All original source code is the sole property of Hossam Balaha and the University of Louisville. The code has been adapted and extended for use in Radioflow, but the original contributions are acknowledged. As cited from the original repository:
+
+
+> No part of this series may be reproduced, distributed, or transmitted in any form or by any means, including photocopying, recording, or other electronic or mechanical methods, without the prior written permission of the author, except in the case of brief quotations embodied in critical reviews and certain other noncommercial uses permitted by copyright law. For permission requests, contact the author.
