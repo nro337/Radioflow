@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.routes import router as api_router
 
 
 @asynccontextmanager
@@ -57,6 +58,7 @@ app.add_middleware(
 )
 
 # Routes
+app.include_router(api_router)
 
 
 # Health check
