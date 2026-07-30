@@ -56,6 +56,27 @@ DATASET_PATH=/path/to/dataset
     curl http://localhost:8000/health
     ``` 
 
+### Starting the Backend API (image already built)
+If you've already built the backend image and just need to start it again (no code changes since the last build), skip the `--build` step:
+1. Navigate to the root of the repo:
+    ```bash
+    cd Radioflow
+    ```
+2. Start the existing container:
+    ```bash
+    docker compose up -d backend
+    ```
+3. Confirm the container is running:
+    ```bash
+    docker compose ps
+    ```
+4. Check the API health endpoint:
+    ```bash
+    curl http://localhost:8000/health
+    ```
+
+> **Tip:** If the container already exists but is stopped, `docker compose up -d backend` will just restart it without rebuilding. Only add `--build` back if you've changed backend code or dependencies.
+
 ### Stopping the Backend API
 To stop the backend API, run:
 ```bash

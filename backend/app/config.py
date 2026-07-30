@@ -1,7 +1,7 @@
 """config.py"""
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     RESULTS_DIR: Path = Path("/app/data/results")
     DATASET_PATH: Path = Path("/data")  # Read-only dataset mount within Docker container
     STATIC_DIR: Path = Path("/app/static")  # Only for serving static file in prod
+    # Pre-generated features CSV to preview in demos without running preprocessing live.
+    FALLBACK_FEATURES_CSV_PATH: Optional[Path] = None
 
     # CORS
     CORS_ORIGINS: List[str] = [

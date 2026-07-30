@@ -10,10 +10,12 @@ services:
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
       DATASET_PATH: "/data"
+      FALLBACK_FEATURES_CSV_PATH: "/fallback/features.csv"
     volumes:
       - ./backend/app:/app/app
       - ./backend/ml:/app/ml
       - ${DATASET_PATH}:/data:ro
+      - ${FALLBACK_FEATURES_CSV_PATH}:/fallback/features.csv:ro
       - backend_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
