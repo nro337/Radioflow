@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { SlidersHorizontal } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -30,15 +30,16 @@ import {
 } from '@/components/ui/form'
 import {
   fetchDatasets,
+  fetchExperiment,
   fetchFallbackFeaturesPreview,
   runPreprocessing,
   subscribeToPreprocessingProgress,
+  applyFallbackPreprocessing,
   type FallbackFeaturesPreview,
   type PreprocessingRequest,
   type PreprocessingResult,
 } from '@/lib/api'
-
-const EXPERIMENT_ID = 'current'
+import { useCurrentExperimentStore } from '@/lib/current-experiment'
 
 export const Route = createFileRoute('/preprocessing')({
   component: Preprocessing,
@@ -153,6 +154,13 @@ function toRequestPayload(values: FormValues): PreprocessingRequest {
 }
 
 function Preprocessing() {
+  const navigate = useNavigate()
+  const currentExperimentId = useCurrentExperimentStore((state) => state.currentExperimentId)
+  const experimentQuery = useQuery({
+    queryKey: ['experiment', currentExperimentId],
+    queryFn: () => fetchExperiment(currentExperimentId!),
+    enabled: !!currentExperimentId,
+  })
   const datasetsQuery = useQuery({
     queryKey: ['datasets'],
     queryFn: fetchDatasets,
@@ -165,6 +173,11 @@ function Preprocessing() {
     queryFn: () => fetchFallbackFeaturesPreview(8),
     enabled: showFallback,
   })
+  const fallbackAvailabilityQuery = useQuery({
+    queryKey: ['preprocessing-fallback-availability'],
+    queryFn: () => fetchFallbackFeaturesPreview(1),
+    retry: false,
+  })
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -173,22 +186,34 @@ function Preprocessing() {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      runPreprocessing(EXPERIMENT_ID, toRequestPayload(values)),
+      runPreprocessing(currentExperimentId!, toRequestPayload(values)),
     onSuccess: (result) => {
       setProgress(result)
       unsubscribeRef.current()
-      unsubscribeRef.current = subscribeToPreprocessingProgress(EXPERIMENT_ID, setProgress)
+      unsubscribeRef.current = subscribeToPreprocessingProgress(
+        currentExperimentId!,
+        setProgress,
+      )
+    },
+  })
+
+  const useFallbackMutation = useMutation({
+    mutationFn: () => applyFallbackPreprocessing(currentExperimentId!),
+    onSuccess: (result) => {
+      setProgress(result)
+      unsubscribeRef.current()
+      navigate({ to: '/training' })
     },
   })
 
   useEffect(() => () => unsubscribeRef.current(), [])
 
   useEffect(() => {
-    const firstDataset = datasetsQuery.data?.[0]
-    if (firstDataset && !form.getValues('datasetId')) {
-      form.setValue('datasetId', firstDataset.id)
+    const datasetId = experimentQuery.data?.datasetId ?? datasetsQuery.data?.[0]?.id
+    if (datasetId && !form.getValues('datasetId')) {
+      form.setValue('datasetId', datasetId)
     }
-  }, [datasetsQuery.data, form])
+  }, [datasetsQuery.data, experimentQuery.data, form])
 
   const onSubmit = form.handleSubmit((values) => {
     setProgress(null)
@@ -204,21 +229,64 @@ function Preprocessing() {
       ? Math.round((progress.processed / progress.total) * 100)
       : 0
 
+  if (!currentExperimentId) {
+    return (
+      <StagePage
+        icon={SlidersHorizontal}
+        title="Preprocessing"
+        description="Normalize radiomics features, run feature selection."
+      >
+        <p className="text-sm text-muted-foreground">
+          No experiment selected. Create or continue one from{' '}
+          <Link to="/experiments" className="text-primary underline-offset-4 hover:underline">
+            Experiments
+          </Link>{' '}
+          first.
+        </p>
+      </StagePage>
+    )
+  }
+
   return (
     <StagePage
       icon={SlidersHorizontal}
       title="Preprocessing"
       description="Normalize radiomics features, run feature selection."
     >
-      <div className="flex justify-end pb-4">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setShowFallback((value) => !value)}
-        >
-          {showFallback ? 'Back to form' : 'View completed CSV'}
-        </Button>
+      <div className="flex items-center justify-between gap-2 pb-4">
+        <div>
+          {fallbackAvailabilityQuery.data && (
+            <p className="text-xs text-muted-foreground">
+              A completed features CSV is available locally: {fallbackAvailabilityQuery.data.path}
+            </p>
+          )}
+          {useFallbackMutation.isError && (
+            <p className="text-xs font-medium text-destructive">
+              {useFallbackMutation.error.message}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {fallbackAvailabilityQuery.data && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={useFallbackMutation.isPending || isRunning}
+              onClick={() => useFallbackMutation.mutate()}
+            >
+              {useFallbackMutation.isPending ? 'Linking…' : 'Use this CSV for training'}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFallback((value) => !value)}
+          >
+            {showFallback ? 'Back to form' : 'View completed CSV'}
+          </Button>
+        </div>
       </div>
 
       {showFallback ? (

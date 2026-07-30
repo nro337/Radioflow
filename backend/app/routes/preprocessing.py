@@ -10,8 +10,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.core.preprocessing_jobs import get_job, start_job, subscribe
+from app.core.preprocessing_jobs import get_job, start_job, subscribe, use_fallback
 from app.routes.datasets import _get_dataset_root
+from app.routes.experiments import _require_experiment
 
 router = APIRouter(
     prefix="/experiments/{experiment_id}/preprocessing", tags=["preprocessing"]
@@ -130,6 +131,8 @@ async def run_preprocessing_job(
     experiment_id: str, payload: PreprocessingConfig
 ) -> PreprocessingResult:
     """Start preprocessing on the experiment's radiomics features."""
+    _require_experiment(experiment_id)
+
     existing = get_job(experiment_id)
     if existing is not None and existing.status == "running":
         raise HTTPException(
@@ -157,6 +160,8 @@ async def run_preprocessing_job(
 @router.get("", response_model=PreprocessingResult)
 async def get_preprocessing(experiment_id: str) -> PreprocessingResult:
     """Get the experiment's preprocessing results."""
+    _require_experiment(experiment_id)
+
     job = get_job(experiment_id)
     if job is None:
         raise HTTPException(
@@ -165,9 +170,27 @@ async def get_preprocessing(experiment_id: str) -> PreprocessingResult:
     return _to_result(job)
 
 
+@router.post("/use-fallback", response_model=PreprocessingResult)
+async def use_fallback_preprocessing(experiment_id: str) -> PreprocessingResult:
+    """Skip live preprocessing and treat the pre-generated demo CSV as this experiment's features."""
+    _require_experiment(experiment_id)
+
+    path = settings.FALLBACK_FEATURES_CSV_PATH
+    if path is None or not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="No fallback features CSV is configured (set FALLBACK_FEATURES_CSV_PATH).",
+        )
+
+    job = use_fallback(experiment_id, str(path))
+    return _to_result(job)
+
+
 @router.get("/stream")
 async def stream_preprocessing_progress(experiment_id: str) -> StreamingResponse:
     """Server-sent events stream of live preprocessing progress for the UI to follow."""
+    _require_experiment(experiment_id)
+
     job = get_job(experiment_id)
     if job is None:
         raise HTTPException(

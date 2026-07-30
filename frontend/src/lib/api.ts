@@ -95,6 +95,19 @@ export async function runPreprocessing(
   return res.json() as Promise<PreprocessingResult>
 }
 
+export function fetchPreprocessingStatus(experimentId: string): Promise<PreprocessingResult> {
+  return fetchJson<PreprocessingResult>(
+    `/experiments/${encodeURIComponent(experimentId)}/preprocessing`,
+  )
+}
+
+export function applyFallbackPreprocessing(experimentId: string): Promise<PreprocessingResult> {
+  return sendJson<PreprocessingResult>(
+    `/experiments/${encodeURIComponent(experimentId)}/preprocessing/use-fallback`,
+    'POST',
+  )
+}
+
 export interface FallbackFeaturesPreview {
   path: string
   columns: string[]
@@ -103,6 +116,65 @@ export interface FallbackFeaturesPreview {
 
 export function fetchFallbackFeaturesPreview(limit = 10): Promise<FallbackFeaturesPreview> {
   return fetchJson<FallbackFeaturesPreview>(`/preprocessing/fallback?limit=${limit}`)
+}
+
+export type ExperimentStage =
+  | 'created'
+  | 'preprocessing'
+  | 'preprocessing_failed'
+  | 'preprocessed'
+  | 'training'
+  | 'training_failed'
+  | 'trained'
+
+export interface Experiment {
+  id: string
+  name: string
+  datasetId: string
+  description: string | null
+  createdAt: string
+  stage: ExperimentStage
+}
+
+export interface ExperimentCreate {
+  name: string
+  datasetId: string
+  description?: string
+}
+
+async function sendJson<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(detail || `Request to ${path} failed with status ${res.status}`)
+  }
+  return res.json() as Promise<T>
+}
+
+export function fetchExperiments(): Promise<Experiment[]> {
+  return fetchJson<Experiment[]>('/experiments')
+}
+
+export function fetchExperiment(experimentId: string): Promise<Experiment> {
+  return fetchJson<Experiment>(`/experiments/${encodeURIComponent(experimentId)}`)
+}
+
+export function createExperiment(payload: ExperimentCreate): Promise<Experiment> {
+  return sendJson<Experiment>('/experiments', 'POST', payload)
+}
+
+export async function deleteExperiment(experimentId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/experiments/${encodeURIComponent(experimentId)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(detail || `Request failed with status ${res.status}`)
+  }
 }
 
 export function subscribeToPreprocessingProgress(
@@ -114,6 +186,85 @@ export function subscribeToPreprocessingProgress(
   )
   source.onmessage = (event) => {
     onProgress(JSON.parse(event.data) as PreprocessingResult)
+  }
+  source.onerror = () => {
+    source.close()
+  }
+  return () => source.close()
+}
+
+// Scaler/model names understood by the backend, mirroring `classification_core.scalers`/`models`.
+export const AVAILABLE_SCALERS = [
+  'Normalizer',
+  'Standard',
+  'MinMax',
+  'Robust',
+  'MaxAbs',
+  'QT',
+] as const
+
+export const AVAILABLE_MODELS = [
+  'MLP',
+  'RF',
+  'AB',
+  'KNN',
+  'DT',
+  'ETs',
+  'SGD',
+  'SVC',
+  'GNB',
+  'LR',
+  'GB',
+  'Bagging',
+  'XGB',
+  'LGBM',
+  'Voting',
+  'Stacking',
+] as const
+
+export interface TrainingRequest {
+  testRatios: number[]
+  scalers: string[]
+  models: string[]
+  targetColumn: string
+  dropFirstColumn: boolean
+}
+
+export type TrainingJobStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface TrainingResult {
+  status: TrainingJobStatus
+  processed: number
+  total: number
+  currentTask: string
+  error: string | null
+  resultsPath: string | null
+}
+
+export function runTraining(
+  experimentId: string,
+  payload: TrainingRequest,
+): Promise<TrainingResult> {
+  return sendJson<TrainingResult>(
+    `/experiments/${encodeURIComponent(experimentId)}/train`,
+    'POST',
+    payload,
+  )
+}
+
+export function fetchTrainingStatus(experimentId: string): Promise<TrainingResult> {
+  return fetchJson<TrainingResult>(`/experiments/${encodeURIComponent(experimentId)}/train`)
+}
+
+export function subscribeToTrainingProgress(
+  experimentId: string,
+  onProgress: (result: TrainingResult) => void,
+): () => void {
+  const source = new EventSource(
+    `${API_BASE_URL}/experiments/${encodeURIComponent(experimentId)}/train/stream`,
+  )
+  source.onmessage = (event) => {
+    onProgress(JSON.parse(event.data) as TrainingResult)
   }
   source.onerror = () => {
     source.close()

@@ -6,11 +6,14 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi[standard]>=0.140.7",
+    "lightgbm>=4.7.0",
     "matplotlib>=3.10.9",
     "opencv-python>=5.0.0.93",
     "pandas>=2.3.3",
     "pydantic>=2.13.4",
+    "scikit-learn>=1.7.2",
     "tqdm>=4.70.0",
+    "xgboost>=3.2.0",
 ]
 
 [dependency-groups]
@@ -24,4 +27,7 @@ disable = [
     "C0103",
     "C0200",
     "C0301",
+    "C0415",
+    "W0102",
+    "W0718",
 ]

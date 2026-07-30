@@ -1,11 +1,11 @@
-"""In-memory job tracking for preprocessing runs, so the API can report live progress."""
+"""In-memory job tracking for classification experiment runs, so the API can report live progress."""
 
 import asyncio
 import uuid
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional
 
-from app.core.preprocessing_core import run_preprocessing
+from app.core.classification_core import run_classification_experiments
 
 JobStatus = Literal["pending", "running", "completed", "failed"]
 
@@ -17,23 +17,23 @@ class ProgressEvent:
     status: JobStatus
     processed: int
     total: int
-    currentFile: str = ""
+    currentTask: str = ""
     error: Optional[str] = None
-    featuresPath: Optional[str] = None
+    resultsPath: Optional[str] = None
 
 
 @dataclass
 class Job:
-    """Tracks a single preprocessing run for one experiment."""
+    """Tracks a single classification experiment run for one experiment."""
 
     id: str
     experimentId: str
     status: JobStatus = "pending"
     processed: int = 0
     total: int = 0
-    currentFile: str = ""
+    currentTask: str = ""
     error: Optional[str] = None
-    featuresPath: Optional[str] = None
+    resultsPath: Optional[str] = None
     subscribers: List["asyncio.Queue[ProgressEvent]"] = field(default_factory=list)
 
     def snapshot(self) -> ProgressEvent:
@@ -41,9 +41,9 @@ class Job:
             status=self.status,
             processed=self.processed,
             total=self.total,
-            currentFile=self.currentFile,
+            currentTask=self.currentTask,
             error=self.error,
-            featuresPath=self.featuresPath,
+            resultsPath=self.resultsPath,
         )
 
 
@@ -51,25 +51,8 @@ _jobs: Dict[str, Job] = {}
 
 
 def get_job(experiment_id: str) -> Optional[Job]:
-    """Return the most recent preprocessing job for an experiment, if any."""
+    """Return the most recent classification job for an experiment, if any."""
     return _jobs.get(experiment_id)
-
-
-def use_fallback(experiment_id: str, features_path: str) -> Job:
-    """Mark preprocessing as already complete for an experiment, pointing at a pre-generated CSV.
-
-    Lets demos skip the live extraction run and jump straight to training.
-    """
-    job = Job(
-        id=str(uuid.uuid4()),
-        experimentId=experiment_id,
-        status="completed",
-        processed=1,
-        total=1,
-        featuresPath=features_path,
-    )
-    _jobs[experiment_id] = job
-    return job
 
 
 def subscribe(job: Job) -> "asyncio.Queue[ProgressEvent]":
@@ -89,24 +72,38 @@ def _publish(job: Job) -> None:
         queue.put_nowait(job.snapshot())
 
 
-async def start_job(experiment_id: str, extraction_params: dict, dataset_path: str, output_path: str) -> Job:
-    """Kick off a preprocessing run in a background thread and track its progress."""
+async def start_job(
+    experiment_id: str,
+    features_path: str,
+    output_dir: str,
+    test_ratios: list,
+    scalers: list,
+    models: list,
+    target_column: str,
+    drop_first_column: bool,
+) -> Job:
+    """Kick off a classification experiment sweep in a background thread and track its progress."""
     job = Job(id=str(uuid.uuid4()), experimentId=experiment_id)
     _jobs[experiment_id] = job
 
     loop = asyncio.get_running_loop()
 
-    def on_progress(processed: int, total: int, current_file: str) -> None:
+    def on_progress(processed: int, total: int, current_task: str) -> None:
         job.processed = processed
         job.total = total
-        job.currentFile = current_file
+        job.currentTask = current_task
         loop.call_soon_threadsafe(_publish, job)
 
     def run() -> str:
-        return run_preprocessing(
-            extraction_params,
-            dataset_path,
-            outputPath=output_path,
+        return run_classification_experiments(
+            datasetFilename=features_path,
+            storageFolderName=output_dir,
+            test_ratios=test_ratios,
+            scalers=scalers,
+            models=models,
+            baseDir="",
+            targetColumn=target_column,
+            dropFirstColumn=drop_first_column,
             progressCallback=on_progress,
         )
 
@@ -114,9 +111,9 @@ async def start_job(experiment_id: str, extraction_params: dict, dataset_path: s
         job.status = "running"
         _publish(job)
         try:
-            features_path = await asyncio.to_thread(run)
+            results_path = await asyncio.to_thread(run)
             job.status = "completed"
-            job.featuresPath = features_path
+            job.resultsPath = results_path
         except Exception as exc:  # noqa: BLE001 - surface any failure to subscribers
             job.status = "failed"
             job.error = str(exc)
