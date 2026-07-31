@@ -297,6 +297,33 @@ export interface ConfusionMatrix {
   matrix: number[][]
 }
 
+export interface PredictionRequest {
+  testRatio: number
+  model: string
+  scaler: string
+}
+
+export interface PredictionResult {
+  sampleIndex: number
+  file: string | null
+  trueClass: string
+  predictedClass: string
+  probabilities: Record<string, number> | null
+  datasetId: string
+  imagePath: string | null
+}
+
+export function runPrediction(
+  experimentId: string,
+  payload: PredictionRequest,
+): Promise<PredictionResult> {
+  return sendJson<PredictionResult>(
+    `/experiments/${encodeURIComponent(experimentId)}/predict`,
+    'POST',
+    payload,
+  )
+}
+
 export function fetchConfusionMatrix(
   experimentId: string,
   testRatio: number,

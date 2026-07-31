@@ -34,6 +34,8 @@ class Job:
     currentTask: str = ""
     error: Optional[str] = None
     resultsPath: Optional[str] = None
+    targetColumn: str = "Class"
+    dropFirstColumn: bool = True
     subscribers: List["asyncio.Queue[ProgressEvent]"] = field(default_factory=list)
 
     def snapshot(self) -> ProgressEvent:
@@ -83,7 +85,12 @@ async def start_job(
     drop_first_column: bool,
 ) -> Job:
     """Kick off a classification experiment sweep in a background thread and track its progress."""
-    job = Job(id=str(uuid.uuid4()), experimentId=experiment_id)
+    job = Job(
+        id=str(uuid.uuid4()),
+        experimentId=experiment_id,
+        targetColumn=target_column,
+        dropFirstColumn=drop_first_column,
+    )
     _jobs[experiment_id] = job
 
     loop = asyncio.get_running_loop()
