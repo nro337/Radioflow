@@ -99,7 +99,23 @@ View API documentation at:
 
 ## Licensing and Attribution
 
-The example dataset used for this project is sourced from Figshare as the [Brain Tumor Dataset](https://figshare.com/articles/dataset/brain_tumor_dataset/1512427). All credit and rights to the dataset are owned by the original authors, and it is used here solely for educational purposes in the context of this project. The dataset includes 3,064 T1-weighted contrast-enhanced MRI images from 233 patients, categorized into three types of brain tumors: meningioma (708 slices), glioma (1,426 slices), and pituitary tumor (930 slices).
+The example dataset used for this project is sourced from Figshare as the [Brain Tumor Dataset](https://figshare.com/articles/dataset/brain_tumor_dataset/1512427). 
+
+https://doi.org/10.6084/m9.figshare.1512427
+Version: 8
+
+```bibtex
+@article{Cheng2017,
+    author = "Jun Cheng",
+    title = "{brain tumor dataset}",
+    year = "2017",
+    month = "4",
+    url = "https://figshare.com/articles/dataset/brain_tumor_dataset/1512427",
+    doi = "10.6084/m9.figshare.1512427.v8"
+}
+```
+
+All credit and rights to the dataset are owned by the original authors, and it is used here solely for educational purposes in the context of this project. The dataset includes 3,064 T1-weighted contrast-enhanced MRI images from 233 patients, categorized into three types of brain tumors: meningioma (708 slices), glioma (1,426 slices), and pituitary tumor (930 slices).
 
 The core Python code implementation have been sourced from Hossam Balaha and their curriculum development in the [BE 645 Artificial Intelligence (AI) and Radiomics](https://github.com/HossamBalaha/BE-645-Artificial-Intelligence-and-Radiomics) course. All original source code is the sole property of Hossam Balaha and the University of Louisville. The code has been adapted and extended for use in Radioflow, but the original contributions are acknowledged. As cited from the original repository:
 
