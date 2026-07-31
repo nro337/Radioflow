@@ -9,10 +9,12 @@
 """
 
 # Import necessary libraries.
+import json  # For saving the raw confusion matrix alongside its plot.
 import os  # For file and directory operations.
 import pickle  # For saving and loading Python objects.
 from typing import Callable, Optional
 from matplotlib import pyplot as plt
+import numpy as np
 import tqdm  # For progress bar in loops.
 import pandas as pd
 
@@ -135,15 +137,15 @@ def run_classification_experiments(
             for scalerName in tqdm.tqdm(scalers, desc="Scalers", leave=False):
                 try:
                     # Call the function to perform machine learning classification.
-                    metrics, pltObject, objects = MachineLearningClassificationV1(
-                        os.path.join(
-                            baseDir, datasetFilename
-                        ),  # Path to the dataset file.
-                        scalerName,  # Name of the scaler to be used.
-                        modelName,  # Name of the machine learning model to be used.
-                        testRatio=testRatio,  # Ratio of the test data.
-                        targetColumn=targetColumn,  # Name of the target column in the dataset.
-                        dropFirstColumn=dropFirstColumn,  # Whether to drop the first column (usually an index or ID).
+                    metrics, pltObject, objects, confMatrix, classLabels = (
+                        MachineLearningClassificationV1(
+                            os.path.join(baseDir, datasetFilename),
+                            scalerName,
+                            modelName,
+                            testRatio=testRatio,
+                            targetColumn=targetColumn,
+                            dropFirstColumn=dropFirstColumn,
+                        )
                     )
 
                     # UNCOMMENT THE FOLLOWING CODE TO PRINT THE METRICS WITH 4 DECIMAL PLACES.
@@ -164,6 +166,17 @@ def run_classification_experiments(
                     pltObject.figure.clf()  # Clear the figure to free up memory.
                     plt.close()  # Close the figure to free up memory.
 
+                    # Save classes in JSON so UI can create the heatmap
+                    with open(
+                        os.path.join(
+                            storageFolderPath, f"{modelName}_{scalerName}_CM.json"
+                        ),
+                        "w",
+                    ) as f:
+                        json.dump(
+                            {"labels": classLabels, "matrix": confMatrix.tolist()}, f
+                        )
+
                     # Save the trained model and scaler objects using pickle.
                     with open(
                         os.path.join(storageFolderPath, f"{modelName}_{scalerName}.p"),
@@ -171,12 +184,24 @@ def run_classification_experiments(
                     ) as f:
                         pickle.dump(objects, f)  # Save the model and scaler objects.
 
+                    # "Weights" is a per-class proportion array not shown in the table.
+                    countMetricKeys = {"TP", "FP", "FN", "TN"}
+                    processedMetrics = {}
+                    for key, value in metrics.items():
+                        if isinstance(value, np.ndarray):
+                            if key in countMetricKeys:
+                                processedMetrics[key] = ", ".join(
+                                    str(round(v)) for v in value.tolist()
+                                )
+                        else:
+                            processedMetrics[key] = value
+
                     # Append the model name and scaler name to the metrics dictionary.
                     history.append(
                         {
                             "Model": modelName,  # Name of the machine learning model.
                             "Scaler": scalerName,  # Name of the scaler used for preprocessing.
-                            **metrics,  # Performance metrics returned by the classification function.
+                            **processedMetrics,  # Per-class counts + aggregate metrics.
                         }
                     )
                 except Exception as e:

@@ -421,5 +421,5 @@ def MachineLearningClassificationV1(
         "LabelEncoder": le,
     }
 
-    # Return the performance metrics, plot object, and objects for saving.
-    return metrics, pltObject, objects
+    # Labels are cast to str since class values may be numeric (e.g. a "Class" column of ints).
+    return metrics, pltObject, objects, cm, le.classes_.astype(str).tolist()

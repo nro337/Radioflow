@@ -271,3 +271,44 @@ export function subscribeToTrainingProgress(
   }
   return () => source.close()
 }
+
+export type EvaluationStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface EvaluationRow {
+  testRatio: number
+  model: string
+  scaler: string
+  metrics: Record<string, number>
+  countMetrics: Record<string, string>
+}
+
+export interface EvaluationResult {
+  status: EvaluationStatus
+  rows: EvaluationRow[]
+  error: string | null
+}
+
+export function fetchEvaluation(experimentId: string): Promise<EvaluationResult> {
+  return fetchJson<EvaluationResult>(`/experiments/${encodeURIComponent(experimentId)}/evaluate`)
+}
+
+export interface ConfusionMatrix {
+  labels: string[]
+  matrix: number[][]
+}
+
+export function fetchConfusionMatrix(
+  experimentId: string,
+  testRatio: number,
+  model: string,
+  scaler: string,
+): Promise<ConfusionMatrix> {
+  const params = new URLSearchParams({
+    testRatio: String(testRatio),
+    model,
+    scaler,
+  })
+  return fetchJson<ConfusionMatrix>(
+    `/experiments/${encodeURIComponent(experimentId)}/evaluate/confusion-matrix?${params.toString()}`,
+  )
+}
