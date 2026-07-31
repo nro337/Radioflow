@@ -1,6 +1,8 @@
 # Radioflow
 BE645 AI in Radiomics Final Project
 
+![Radioflow Hero](./frontend/src/assets/readme_hero.png)
+
 ## Requirements
 - Python 3.10
 - uv
